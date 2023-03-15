@@ -43,15 +43,15 @@ theClient.Initialize(HostIP, HostIP);
 
 Dog_ID = 1; % Rigid body ID of the drone from Motive
 
-% fig = figure();
-% ax = axes('Parent',fig);
-% line_handle = plot(ax,Dog_Pos(2),Dog_Pos(3),'o');
+fig = figure();
+ax = axes('Parent',fig);
+line_handle = plot(ax,Dog_Pos(2),Dog_Pos(3),'o');
 while true
     [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID);
-    disp(Dog_Pos(4));
-%     set(line_handle, 'XData',Dog_Pos(2),'YData',Dog_Pos(3))
-%     drawnow;
-    pause(0.1);
+    disp(Dog_Pos);
+    set(line_handle, 'z',Dog_Pos(2),'x',Dog_Pos(3))
+    drawnow;
+    pause(1);
 end
 
 
