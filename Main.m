@@ -17,7 +17,8 @@ Robot_Dog_Port = 1145;
 
 %% Robot Dog Command Initialized
 Control_Command = zeros(1,11,'single');
-
+%velocity walking
+Control_Command(1)=2; 
 %% Feedback Control Parameters
 K_P = 0.5; % Porportional constant on velocity action
 K_I = 1;  % Integral
@@ -66,18 +67,12 @@ theClient.Initialize(HostIP, HostIP);
 Dog_ID = 1; % Rigid body ID of the drone from Motive
 
 %% figure for movtion track
-[Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, z, x, yaw]
 fig = figure();
 ax = axes('Parent',fig);
-line_handle = plot(ax,Dog_Pos(3),Dog_Pos(2),'o');
-
 xlabel('X')
 ylabel('Z')
-
 arrow_length=0.2;
 
-%velocity walking
-Control_Command(1)=2; 
 %% Robot dog command
 %     Control_Command()
 %
@@ -124,8 +119,6 @@ while true
         Control_Command(9) = error_Z_rotated*K_P;
         Control_Command(10) = error_X_rotated*K_P;
 
-
-
     end
     disp(Control_Command);
     Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
@@ -133,13 +126,22 @@ while true
     %50Hz
     pause(0.02);
     %% draw 
+    circle_center =[0,0];
+    circle_radius =1.65;
+    circle_theta = linspace(0,2*pi,100);
+    circle_x=circle_center(1)+circle_radius*cos(circle_theta);
+    circle_y=circle_center(2)+circle_radius*sin(circle_theta);
+    plot(ax,circle_x,circle_y,'b-');
+    hold on;
+    plot(ax,0,0,'x');
+    ax.DataAspectRatio=[1 1 1];
     dy=arrow_length*cosd(Dog_Pos(4));
     dx=arrow_length*sind(Dog_Pos(4));
     quiver(Dog_Pos(3),Dog_Pos(2),dx,dy,'r','LineWidth',0.2,'MaxHeadSize',2);
     set(gca,'XDir','reverse');
-    xlim(ax,[-2,2]);
+    xlim(ax,[-3,3]);
     ylim(ax,[-2,2]);
-    %set(line_handle, 'XData',Dog_Pos(3),'YData',Dog_Pos(2))
+    hold off;
     drawnow;
 end
 
