@@ -23,12 +23,12 @@ Control_Command(1)=2;
 dt = 0.05; % time
 
 % Porportional constant on velocity action
-K_P_x = 0.65; 
+K_P_x = 0.65;
 K_P_z = 0.65;
 K_P_yaw = pi/180;
 
 % Integral
-K_I_x = 0.01;  
+K_I_x = 0.01;
 K_I_z = 0.01;
 K_I_yaw = 0;
 
@@ -50,8 +50,22 @@ derivative_x_limit = 0.2;
 derivative_z_limit = 0.2;
 derivative_yaw_limit = 1*pi/180;
 %% Control Setting
+% MODE
+% Mode 1: Dog will go to Target_point.
+% Mode 2: Dog will follow Way_Points.
+Control_Mode=1;
+
+% Target Point
+%[x,z]
+Target_Point=[0 0];
+
+% YAW
+% [0,360)
+% -1: Disable yaw control
+
+% Yaw
 % wall wall wall wall wall
-%           0
+%          0,359.9..
 %           ^ z
 %           |
 %           |
@@ -60,21 +74,11 @@ derivative_yaw_limit = 1*pi/180;
 %          180
 %
 % wall computer wall
-
-%% MODE
-% Mode 1: Dog will go to Target_point.
-% Mode 2: Dog will follow Way_Points.
-Control_Mode=1;
-%% Target Point
-%[x,z]
-Target_Point=[0 0]; 
-%% YAW
-% [0,360)
-% -1: Disable yaw control
 yaw_set = 0;
-%% THRESHOLD
+
+% THRESHOLD
 % Distance Threshold to switch to next way point
-Distance_Threshold = 0.1;
+Distance_Threshold = 0.2;
 
 % Cricel way points 18
 Way_Points_center =[0,0];
@@ -127,7 +131,10 @@ circle_y=circle_center(2)+circle_radius*sin(circle_theta);
 %        |
 %        |
 % x <----O y(pointing up)
+%
+%
 % wall computer wall
+
 %% Init Parameters
 % index for way points
 Way_Point_index=1;
@@ -141,10 +148,14 @@ previous_error_z = 0;
 previous_error_yaw = 0;
 
 breakflag = 0;
+Dog_Pos_Record=[];
+Dog_Pos_Record_Index = 1;
 %% Main Loop
 while true
     % get position from camera
     [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, z, x, yaw]
+    Dog_Pos_Record=[Dog_Pos_Record;Dog_Pos];
+    Dog_Pos_Record_Index = Dog_Pos_Record_Index +1;
     if Control_Mode == 2
         Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
     end
@@ -156,17 +167,17 @@ while true
     Point_Dog = [Dog_Pos(2) Dog_Pos(3)];  %[x,z]
     Vector_PD_TP = Target_Point-Point_Dog; % Get vector
     Norm_Vector = norm(Vector_PD_TP);      % Calculate norm
-    
+
     % rotation matrix to turn vector to robot dog frame
     Rotation_matrix = [cosd(Dog_Pos(4)), -sind(Dog_Pos(4)) ; sind(Dog_Pos(4)),cosd(Dog_Pos(4)) ];
 
-    if Norm_Vector > Distance_Threshold 
+    if Norm_Vector > Distance_Threshold
         %% Mode 1
         % not control yaw
         if yaw_set == -1
             error_yaw_command=0;
 
-        % control yaw
+            % control yaw
         elseif yaw_set >=0 && yaw_set<360
             error_yaw = yaw_set-Dog_Pos(4); %get error
             if abs(error_yaw)>180
@@ -176,7 +187,7 @@ while true
             end
         end
         %vector in robot dog frame = error_x error_z
-        Vector_rotated = Rotation_matrix*Vector_PD_TP'; 
+        Vector_rotated = Rotation_matrix*Vector_PD_TP';
 
         %% propostional
         propostional_x   = Vector_rotated(1) * K_P_x;
@@ -340,12 +351,30 @@ while true
     ylim(ax,[-2,2]);
     hold off;
     drawnow;
+    %% Stop
     if breakflag == 1
+        figure;
+        subplot(3,1,1);
+        plot(Dog_Pos_Record(:,1),Dog_Pos_Record(:,2));
+        xlabel('Time');
+        ylabel('X');
+
+        subplot(3,1,2);
+        plot(Dog_Pos_Record(:,1),Dog_Pos_Record(:,3));
+        xlabel('Time');
+        ylabel('Z');
+
+        subplot(3,1,3);
+        plot(Dog_Pos_Record(:,2),Dog_Pos_Record(:,3));
+        xlabel('X');
+        ylabel('Z');
+        set(gca,'XDir','reverse');
+        xlim([-3,3]);
+        ylim([-2,2]);
+        daspect([1 1 1]);
         break;
     end
-    %% 50Hz
+    %% time pause
     pause(dt);
 end
-
-
 
