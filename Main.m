@@ -20,28 +20,13 @@ Control_Command = zeros(1,11,'single');
 %velocity walking
 Control_Command(1)=2;
 %% Feedback Control Parameters
-K_P = 0.5; % Porportional constant on velocity action
+K_P = 0.6; % Porportional constant on velocity action
 K_I = 1;  % Integral
 K_D = 1;
 % constant on velocity action
 K_Y = pi/180; % Proportional constant on angle action
 
 %% Control Setting
-% Mode 1: Dog will go to Target_point.
-% Mode 2: Dog will follow Way_Points.
-
-Control_Mode=2;
-Target_Point=[0.3 -0.2]; %[x,z]
-yaw_set = -1;
-
-Way_Points_center =[0,0];
-Way_Points_radius =1.65;
-Way_Points_theta = linspace(0,2*pi,18);
-Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
-Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
-% [0,360)
-% -1: Disable yaw control
-
 % wall wall wall wall wall
 %           0
 %           ^ z
@@ -52,6 +37,27 @@ Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
 %          180
 %
 % wall computer wall
+
+% Mode 1: Dog will go to Target_point.
+% Mode 2: Dog will follow Way_Points.
+Control_Mode=2;
+
+%[x,z]
+Target_Point=[0 0]; 
+
+% [0,360)
+% -1: Disable yaw control
+yaw_set = -1;
+
+% Distance Threshold to switch to next way point
+Distance_Threshold = 0.1;
+
+% Cricel way points 18
+Way_Points_center =[0,0];
+Way_Points_radius =1.65;
+Way_Points_theta = linspace(0,2*pi,18);
+Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
+Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
 
 %% Instantiate client object to run Motive API commands
 
@@ -99,14 +105,14 @@ circle_y=circle_center(2)+circle_radius*sin(circle_theta);
 % x <----O y(pointing up)
 % wall computer wall
 %% Init
-Way_Point_Number=1;
+Way_Point_index=1;
 
 %% Loop
 while true
     % get position from camera
     [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, z, x, yaw]
     if Control_Mode == 2
-        Target_Point = [Way_Points_x(Way_Point_Number) Way_Points_z(Way_Point_Number)];
+        Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
     end
 
 
@@ -117,10 +123,9 @@ while true
     Vector_PD_TP = Target_Point-Point_Dog;
     Norm_Vector = norm(Vector_PD_TP);
     Rotation_matrix = [cosd(Dog_Pos(4)), -sind(Dog_Pos(4)) ; sind(Dog_Pos(4)),cosd(Dog_Pos(4)) ];
-    %% Enable Control
-    if Norm_Vector > 0.15 %Distance > 0.15M
-        %% Mode 1
 
+    if Norm_Vector > Distance_Threshold %Distance > 0.20M
+        %% Mode 1
         if yaw_set == -1
             error_yaw_command=0;
 
@@ -170,28 +175,38 @@ while true
         %
         %         end
     else
-        if length(Way_Points_z)>Way_Point_Number
-            Way_Point_Number=Way_Point_Number+1;
-        else
+        % finished stop running
+        if Control_Mode == 1
             Control_Command(11) = 0;
             Control_Command(10) = 0; %x
             Control_Command(9) = 0;  %z
             Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
             break;
+        elseif Control_Mode == 2
+            % go to next way point
+            if length(Way_Points_z)>Way_Point_index
+                Way_Point_index=Way_Point_index+1;
+            else
+                %finished stop running
+                Control_Command(11) = 0;
+                Control_Command(10) = 0; %x
+                Control_Command(9) = 0;  %z
+                Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+                break;
+            end
         end
     end
+    %print command
     disp(Control_Command);
-    Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-
+    %Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
 
     %% draw
-
     plot(ax,circle_x,circle_y,'b-');
     xlabel('X')
     ylabel('Z')
     hold on;
     plot(ax,0,0,'.');
-    plot(ax,Target_Point(1),Target_Point(2),'x');
+    plot(ax,Target_Point(1),Target_Point(2),'.','Color','r','MarkerSize',20);
     plot(ax,Way_Points_x,Way_Points_z,'o');
     ax.DataAspectRatio=[1 1 1];
     dy=arrow_length*cosd(Dog_Pos(4));
