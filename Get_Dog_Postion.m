@@ -40,12 +40,12 @@ if ~isempty(Dog_Pos)
     end
     yaw = yaw*180/pi;
 
-    result = [time_stamp z x yaw];
+    result = [time_stamp x z yaw];
 else
     time_stamp=0;
     z=0;
     x=0;
     yaw=0;
-    result = [time_stamp z x yaw];
+    result = [time_stamp x z yaw];
 end
 
