@@ -20,12 +20,22 @@ Control_Command = zeros(1,11,'single');
 %velocity walking
 Control_Command(1)=2;
 %% Feedback Control Parameters
-K_P = 0.65; % Porportional constant on velocity action
-K_I = 1;  % Integral
-K_D = 1;
-% constant on velocity action
-K_Y = pi/180; % Proportional constant on angle action
+dt = 0.05; % time
+K_P_x = 0.65; % Porportional constant on velocity action
+K_P_z = 0.65;
+K_P_yaw = pi/180;
 
+K_I_x = 0.1;  % Integral
+K_I_z = 0.1;
+K_I_yaw = 0;
+
+K_D_x = 0.1;
+K_D_z = 0.1;
+K_D_yaw = 0;
+
+integral_x_limit = 1;
+integral_z_limit = 1;
+integral_yaw_limit = 1*pi/180;
 %% Control Setting
 % wall wall wall wall wall
 %           0
@@ -105,10 +115,18 @@ circle_y=circle_center(2)+circle_radius*sin(circle_theta);
 %        |
 % x <----O y(pointing up)
 % wall computer wall
-%% Init
+%% Init Parameters
+% index for way points
 Way_Point_index=1;
 
-%% Loop
+integral_x = 0;
+integral_z = 0;
+integral_yaw = 0;
+
+previous_error_x = 0;
+previous_error_z = 0;
+previous_error_yaw = 0;
+%% Main Loop
 while true
     % get position from camera
     [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, z, x, yaw]
@@ -121,28 +139,73 @@ while true
 
     % Calculate Distance
     Point_Dog = [Dog_Pos(2) Dog_Pos(3)];  %[x,z]
-    Vector_PD_TP = Target_Point-Point_Dog;
-    Norm_Vector = norm(Vector_PD_TP);
+    Vector_PD_TP = Target_Point-Point_Dog; % Get vector
+    Norm_Vector = norm(Vector_PD_TP);      % Calculate norm
+    
+    % rotation matrix to turn vector to robot dog frame
     Rotation_matrix = [cosd(Dog_Pos(4)), -sind(Dog_Pos(4)) ; sind(Dog_Pos(4)),cosd(Dog_Pos(4)) ];
 
-    if Norm_Vector > Distance_Threshold %Distance > 0.20M
+    if Norm_Vector > Distance_Threshold 
         %% Mode 1
+        % not control yaw
         if yaw_set == -1
             error_yaw_command=0;
 
+        % control yaw
         elseif yaw_set >=0 && yaw_set<360
-            error_yaw = yaw_set-Dog_Pos(4);
+            error_yaw = yaw_set-Dog_Pos(4); %get error
             if abs(error_yaw)>180
                 error_yaw_command=(360+error_yaw);
             else
                 error_yaw_command=error_yaw;
             end
         end
-        Vector_rotated = Rotation_matrix*Vector_PD_TP';
+        %vector in robot dog frame = error_x error_z
+        Vector_rotated = Rotation_matrix*Vector_PD_TP'; 
 
-        Control_Command(11) = error_yaw_command*K_Y;
-        Control_Command(10) = Vector_rotated(1)*K_P; %x
-        Control_Command(9) = Vector_rotated(2)*K_P;  %z
+        % propostional
+        propostional_x   = Vector_rotated(1) * K_P_x;
+        propostional_z   = Vector_rotated(2) * K_P_z;
+        propostional_yaw = error_yaw_command * K_P_yaw;
+
+        % integral
+        integral_x   = integral_x   + K_I_x   * Vector_rotated(1) * dt;
+        integral_z   = integral_z   + K_I_z   * Vector_rotated(2) * dt;
+        integral_yaw = integral_yaw + K_I_yaw * error_yaw_command * dt;
+
+        % integral limit
+        if integral_x > integral_x_limit
+            integral_x = integral_x_limit;
+        elseif integral_x < -integral_x_limit
+            integral_x = -integral_x_limit;
+        end
+
+        if integral_z > integral_z_limit
+            integral_z = integral_z_limit;
+        elseif integral_z < -integral_z_limit
+            integral_z = -integral_z_limit;
+        end
+
+        if integral_yaw > integral_yaw_limit
+            integral_yaw = integral_yaw_limit;
+        elseif integral_yaw < -integral_yaw_limit
+            integral_yaw = -integral_yaw_limit;
+        end
+
+
+        % derivative
+        derivative_x   = K_D_x   * (Vector_rotated(1) - previous_error_x)  /dt;
+        derivative_z   = K_D_z   * (Vector_rotated(2) - previous_error_z)  /dt;
+        derivative_yaw = K_D_yaw * (error_yaw_command - previous_error_yaw)/dt;
+
+        previous_error_x = Vector_rotated(1);
+        previous_error_z = Vector_rotated(2);
+        previous_error_yaw = error_yaw_command;
+
+        % set command
+        Control_Command(10) = propostional_x   + integral_x   + derivative_x;   %x
+        Control_Command(9)  = propostional_z   + integral_z   + derivative_z;   %z
+        Control_Command(11) = propostional_yaw + integral_yaw + derivative_yaw; %yaw
 
         %         %% Mode2
         %         if Control_Mode == 2
@@ -197,11 +260,12 @@ while true
             end
         end
     end
-    %print command
+    % print command
     disp(Control_Command);
+    % send command to vitrual machine
     Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
 
-    %% draw
+    %% draw figure
     plot(ax,circle_x,circle_y,'b-');
     xlabel('X')
     ylabel('Z')
@@ -219,7 +283,7 @@ while true
     hold off;
     drawnow;
     %% 50Hz
-    pause(0.02);
+    pause(dt);
 end
 
 
