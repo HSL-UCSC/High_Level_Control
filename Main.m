@@ -20,7 +20,7 @@ Control_Command = zeros(1,11,'single');
 %velocity walking
 Control_Command(1)=2;
 %% Feedback Control Parameters
-K_P = 0.6; % Porportional constant on velocity action
+K_P = 0.65; % Porportional constant on velocity action
 K_I = 1;  % Integral
 K_D = 1;
 % constant on velocity action
@@ -41,17 +41,17 @@ K_Y = pi/180; % Proportional constant on angle action
 %% MODE
 % Mode 1: Dog will go to Target_point.
 % Mode 2: Dog will follow Way_Points.
-Control_Mode=1;
+Control_Mode=2;
 %% Target Point
 %[x,z]
-Target_Point=[0 -2.8]; 
+Target_Point=[0 0]; 
 %% YAW
 % [0,360)
 % -1: Disable yaw control
-yaw_set = -1;
+yaw_set = 0;
 %% THRESHOLD
 % Distance Threshold to switch to next way point
-Distance_Threshold = 0.1;
+Distance_Threshold = 0.2;
 
 % Cricel way points 18
 Way_Points_center =[0,0];
