@@ -21,21 +21,34 @@ Control_Command = zeros(1,11,'single');
 Control_Command(1)=2;
 %% Feedback Control Parameters
 dt = 0.05; % time
-K_P_x = 0.65; % Porportional constant on velocity action
+
+% Porportional constant on velocity action
+K_P_x = 0.65; 
 K_P_z = 0.65;
 K_P_yaw = pi/180;
 
-K_I_x = 0.1;  % Integral
-K_I_z = 0.1;
+% Integral
+K_I_x = 0.01;  
+K_I_z = 0.01;
 K_I_yaw = 0;
 
-K_D_x = 0.1;
-K_D_z = 0.1;
+% Derivative
+K_D_x = 0.05;
+K_D_z = 0.05;
 K_D_yaw = 0;
 
-integral_x_limit = 1;
-integral_z_limit = 1;
+% limit
+propostional_x_limit = 0.6;
+propostional_z_limit = 0.6;
+propostional_yaw_limit = 0.6;
+
+integral_x_limit = 0.1;
+integral_z_limit = 0.1;
 integral_yaw_limit = 1*pi/180;
+
+derivative_x_limit = 0.2;
+derivative_z_limit = 0.2;
+derivative_yaw_limit = 1*pi/180;
 %% Control Setting
 % wall wall wall wall wall
 %           0
@@ -51,7 +64,7 @@ integral_yaw_limit = 1*pi/180;
 %% MODE
 % Mode 1: Dog will go to Target_point.
 % Mode 2: Dog will follow Way_Points.
-Control_Mode=2;
+Control_Mode=1;
 %% Target Point
 %[x,z]
 Target_Point=[0 0]; 
@@ -61,7 +74,7 @@ Target_Point=[0 0];
 yaw_set = 0;
 %% THRESHOLD
 % Distance Threshold to switch to next way point
-Distance_Threshold = 0.2;
+Distance_Threshold = 0.1;
 
 % Cricel way points 18
 Way_Points_center =[0,0];
@@ -126,6 +139,8 @@ integral_yaw = 0;
 previous_error_x = 0;
 previous_error_z = 0;
 previous_error_yaw = 0;
+
+breakflag = 0;
 %% Main Loop
 while true
     % get position from camera
@@ -163,12 +178,31 @@ while true
         %vector in robot dog frame = error_x error_z
         Vector_rotated = Rotation_matrix*Vector_PD_TP'; 
 
-        % propostional
+        %% propostional
         propostional_x   = Vector_rotated(1) * K_P_x;
         propostional_z   = Vector_rotated(2) * K_P_z;
         propostional_yaw = error_yaw_command * K_P_yaw;
 
-        % integral
+        % propostional limit
+        if propostional_x > propostional_x_limit
+            propostional_x = propostional_x_limit;
+        elseif propostional_x < -propostional_x_limit
+            propostional_x = -propostional_x_limit;
+        end
+
+        if propostional_z > propostional_z_limit
+            propostional_z = propostional_z_limit;
+        elseif propostional_z < -propostional_z_limit
+            propostional_z = -propostional_z_limit;
+        end
+
+        if propostional_yaw > propostional_yaw_limit
+            propostional_yaw = propostional_yaw_limit;
+        elseif propostional_yaw < -propostional_yaw_limit
+            propostional_yaw = -propostional_yaw_limit;
+        end
+
+        %% integral
         integral_x   = integral_x   + K_I_x   * Vector_rotated(1) * dt;
         integral_z   = integral_z   + K_I_z   * Vector_rotated(2) * dt;
         integral_yaw = integral_yaw + K_I_yaw * error_yaw_command * dt;
@@ -193,7 +227,7 @@ while true
         end
 
 
-        % derivative
+        %% derivative
         derivative_x   = K_D_x   * (Vector_rotated(1) - previous_error_x)  /dt;
         derivative_z   = K_D_z   * (Vector_rotated(2) - previous_error_z)  /dt;
         derivative_yaw = K_D_yaw * (error_yaw_command - previous_error_yaw)/dt;
@@ -202,7 +236,27 @@ while true
         previous_error_z = Vector_rotated(2);
         previous_error_yaw = error_yaw_command;
 
-        % set command
+        % derivative limit
+        if derivative_x > derivative_x_limit
+            derivative_x = derivative_x_limit;
+        elseif derivative_x < -derivative_x_limit
+            derivative_x = -derivative_x_limit;
+        end
+
+        if derivative_z > derivative_z_limit
+            derivative_z = derivative_z_limit;
+        elseif derivative_z < -derivative_z_limit
+            derivative_z = -derivative_z_limit;
+        end
+
+        if derivative_yaw > derivative_yaw_limit
+            derivative_yaw = derivative_yaw_limit;
+        elseif derivative_yaw < -derivative_yaw_limit
+            derivative_yaw = -derivative_yaw_limit;
+        end
+
+
+        %% set command
         Control_Command(10) = propostional_x   + integral_x   + derivative_x;   %x
         Control_Command(9)  = propostional_z   + integral_z   + derivative_z;   %z
         Control_Command(11) = propostional_yaw + integral_yaw + derivative_yaw; %yaw
@@ -239,13 +293,18 @@ while true
         %
         %         end
     else
-        % finished stop running
+        % finished, stop running
+
+        % clean integral
+        integral_x = 0;
+        integral_z = 0;
+        integral_yaw = 0;
+
         if Control_Mode == 1
             Control_Command(11) = 0;
             Control_Command(10) = 0; %x
             Control_Command(9) = 0;  %z
-            Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-            break;
+            breakflag = 1;
         elseif Control_Mode == 2
             % go to next way point
             if length(Way_Points_z)>Way_Point_index
@@ -255,8 +314,7 @@ while true
                 Control_Command(11) = 0;
                 Control_Command(10) = 0; %x
                 Control_Command(9) = 0;  %z
-                Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-                break;
+                breakflag = 1;
             end
         end
     end
@@ -282,6 +340,9 @@ while true
     ylim(ax,[-2,2]);
     hold off;
     drawnow;
+    if breakflag == 1
+        break;
+    end
     %% 50Hz
     pause(dt);
 end
