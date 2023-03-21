@@ -38,17 +38,18 @@ K_Y = pi/180; % Proportional constant on angle action
 %
 % wall computer wall
 
+%% MODE
 % Mode 1: Dog will go to Target_point.
 % Mode 2: Dog will follow Way_Points.
-Control_Mode=2;
-
+Control_Mode=1;
+%% Target Point
 %[x,z]
-Target_Point=[0 0]; 
-
+Target_Point=[0 -2.8]; 
+%% YAW
 % [0,360)
 % -1: Disable yaw control
 yaw_set = -1;
-
+%% THRESHOLD
 % Distance Threshold to switch to next way point
 Distance_Threshold = 0.1;
 
@@ -198,7 +199,7 @@ while true
     end
     %print command
     disp(Control_Command);
-    %Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+    Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
 
     %% draw
     plot(ax,circle_x,circle_y,'b-');
