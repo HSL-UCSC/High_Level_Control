@@ -86,6 +86,30 @@ Way_Points_radius =1.65;
 Way_Points_theta = linspace(0,2*pi,50);
 Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
 Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
+%% Path Planning 
+% generate random points
+random_points_number = 4;
+random_points_r = 1.6;
+random_points_center_x = 0;
+random_points_center_z = 0;
+random_points = zeros(random_points_number,2);
+
+for i = 1:random_points_number
+    angle = 2*pi*rand;
+    random_r = random_points_r * sqrt(rand);
+    random_point_x = random_points_center_x + random_r * cos(angle);
+    random_point_z = random_points_center_z + random_r * sin(angle);
+    random_points(i,:)=[random_point_x random_point_z];
+end
+
+figure;
+viscircles([random_points_center_x, random_points_center_z], random_points_r,'LineStyle','--','Color','k');
+hold on;
+scatter(random_points(:,1), random_points(:,2),'red','filled');
+axis equal;
+hold off;
+
+
 
 %% Instantiate client object to run Motive API commands
 
@@ -152,6 +176,7 @@ Dog_Pos_Record=[];
 Dog_Pos_Record_Index = 1;
 [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID);
 time = Dog_Pos(1);
+
 %% Main Loop
 while true
     % get position from camera
