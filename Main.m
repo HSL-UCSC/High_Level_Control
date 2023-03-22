@@ -23,37 +23,38 @@ Control_Command(1)=2;
 dt = 0.05; % time
 
 % Porportional constant on velocity action
-K_P_x = 0.65;
-K_P_z = 0.65;
-K_P_yaw = pi/180;
+K_P_x = 0.6;
+K_P_z = 0.6;
+K_P_yaw = 0.5;
 
 % Integral
-K_I_x = 0.01;
-K_I_z = 0.01;
-K_I_yaw = 0;
+K_I_x = 0.05;
+K_I_z = 0.05;
+K_I_yaw = 0.03;
 
 % Derivative
-K_D_x = 0.1;
-K_D_z = 0.1;
-K_D_yaw = 0;
+K_D_x = 0.08;
+K_D_z = 0.08;
+K_D_yaw = 0.05;
 
 % limit
-propostional_x_limit = 0.6;
-propostional_z_limit = 0.6;
-propostional_yaw_limit = 0.6;
+propostional_x_limit = 0.6;       % m/s
+propostional_z_limit = 0.6;        % m/s
+propostional_yaw_limit = 40*pi/180; % rad/s
 
 integral_x_limit = 0.1;
 integral_z_limit = 0.1;
-integral_yaw_limit = 1*pi/180;
+integral_yaw_limit = 5*pi/180;
 
-derivative_x_limit = 0.3;
-derivative_z_limit = 0.3;
-derivative_yaw_limit = 1*pi/180;
+derivative_x_limit = 0.1;
+derivative_z_limit = 0.1;
+derivative_yaw_limit = 5*pi/180;
 %% Control Setting
 % MODE
 % Mode 1: Dog will go to Target_point.
 % Mode 2: Dog will follow Way_Points.
-Control_Mode=2;
+% Mode 3: Dog will follow the path
+Control_Mode=1;
 
 % Target Point
 %[x,z]
@@ -62,6 +63,7 @@ Target_Point=[0 0];
 % YAW
 % [0,360)
 % -1: Disable yaw control
+% -2: Control Yaw to the motion direction
 
 % Yaw
 % wall wall wall wall wall
@@ -78,36 +80,38 @@ yaw_set = 0;
 
 % THRESHOLD
 % Distance Threshold to switch to next way point
-Distance_Threshold = 0.30;
+Distance_Threshold = 0.15;
 
 % Cricel way points 18
 Way_Points_center =[0,0];
 Way_Points_radius =1.65;
-Way_Points_theta = linspace(0,2*pi,50);
+Way_Points_theta = linspace(0,2*pi,120);
 Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
 Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
-%% Path Planning 
-% generate random points
-random_points_number = 4;
-random_points_r = 1.6;
-random_points_center_x = 0;
-random_points_center_z = 0;
-random_points = zeros(random_points_number,2);
 
-for i = 1:random_points_number
-    angle = 2*pi*rand;
-    random_r = random_points_r * sqrt(rand);
-    random_point_x = random_points_center_x + random_r * cos(angle);
-    random_point_z = random_points_center_z + random_r * sin(angle);
-    random_points(i,:)=[random_point_x random_point_z];
-end
 
-figure;
-viscircles([random_points_center_x, random_points_center_z], random_points_r,'LineStyle','--','Color','k');
-hold on;
-scatter(random_points(:,1), random_points(:,2),'red','filled');
-axis equal;
-hold off;
+% %% Path Planning
+% % generate random points
+% random_points_number = 4;
+% random_points_r = 1.6;
+% random_points_center_x = 0;
+% random_points_center_z = 0;
+% random_points = zeros(random_points_number,2);
+% 
+% for i = 1:random_points_number
+%     angle = 2*pi*rand;
+%     random_r = random_points_r * sqrt(rand);
+%     random_point_x = random_points_center_x + random_r * cos(angle);
+%     random_point_z = random_points_center_z + random_r * sin(angle);
+%     random_points(i,:)=[random_point_x random_point_z];
+% end
+% 
+% figure;
+% viscircles([random_points_center_x, random_points_center_z], random_points_r,'LineStyle','--','Color','k');
+% hold on;
+% scatter(random_points(:,1), random_points(:,2),'red','filled');
+% axis equal;
+% hold off;
 
 
 
@@ -186,8 +190,6 @@ while true
     if Control_Mode == 2
         Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
     end
-
-
     %% Feedback control
 
     % Calculate Distance
@@ -198,28 +200,45 @@ while true
     % rotation matrix to turn vector to robot dog frame
     Rotation_matrix = [cosd(Dog_Pos(4)), -sind(Dog_Pos(4)) ; sind(Dog_Pos(4)),cosd(Dog_Pos(4)) ];
 
-    if Norm_Vector > Distance_Threshold
-        %% Mode 1
-        % not control yaw
-        if yaw_set == -1
+    if Control_Mode==1 || Norm_Vector > Distance_Threshold
+        %vector in robot dog frame = error_x error_z
+        Vector_rotated = Rotation_matrix*Vector_PD_TP';
+
+        if yaw_set == -1 % not control yaw
             error_yaw_command=0;
 
-            % control yaw
-        elseif yaw_set >=0 && yaw_set<360
-            error_yaw = yaw_set-Dog_Pos(4); %get error
-            if abs(error_yaw)>180
+        elseif yaw_set == -2 % control yaw to motion direction
+            angle_r = atan2(Vector_PD_TP(1),Vector_PD_TP(2));
+            yaw_set_mode2 = rad2deg(angle_r);
+            if yaw_set_mode2 < 0
+                yaw_set_mode2 = yaw_set_mode2+360;
+            end
+            error_yaw = yaw_set_mode2-Dog_Pos(4);
+
+            if error_yaw<-180
                 error_yaw_command=(360+error_yaw);
+            elseif error_yaw > 180
+                error_yaw_command=error_yaw-360;
+            else
+                error_yaw_command=error_yaw;
+            end
+
+        elseif yaw_set >=0 && yaw_set<360  % control yaw
+            error_yaw = yaw_set-Dog_Pos(4);
+            if error_yaw<-180
+                error_yaw_command=(360+error_yaw);
+            elseif error_yaw > 180
+                error_yaw_command=error_yaw-360;
             else
                 error_yaw_command=error_yaw;
             end
         end
-        %vector in robot dog frame = error_x error_z
-        Vector_rotated = Rotation_matrix*Vector_PD_TP';
+
 
         %% propostional
         propostional_x   = Vector_rotated(1) * K_P_x;
         propostional_z   = Vector_rotated(2) * K_P_z;
-        propostional_yaw = error_yaw_command * K_P_yaw;
+        propostional_yaw = error_yaw_command*pi/180 * K_P_yaw;
 
         % propostional limit
         if propostional_x > propostional_x_limit
@@ -298,52 +317,14 @@ while true
         Control_Command(10) = propostional_x   + integral_x   + derivative_x;   %x
         Control_Command(9)  = propostional_z   + integral_z   + derivative_z;   %z
         Control_Command(11) = propostional_yaw + integral_yaw + derivative_yaw; %yaw
-
-        %         %% Mode2
-        %         if Control_Mode == 2
-        %             Point_Dog = [Dog_Pos(2) Dog_Pos(3)];
-        %             Vector_PD_TP = Target_Point-Point_Dog;
-        %             Norm_Vector = norm(Vector_PD_TP);
-        %             if(Norm_Vector>0.5)
-        %                 angle_r = atan2(-Vector_PD_TP(1),Vector_PD_TP(2));
-        %                 yaw_set = rad2deg(angle_r);
-        %                 if yaw_set >= -90
-        %                     yaw_set = yaw_set+90;
-        %                 else
-        %                     yaw_set = 360+(yaw_set+90);
-        %                 end
-        %             end
-        %
-        %             error_yaw = yaw_set-Dog_Pos(4);
-        %             if abs(error_yaw)>180
-        %                 error_yaw_command=(360+error_yaw);
-        %             else
-        %                 error_yaw_command=error_yaw;
-        %             end
-        %             error_Z = Target_Point(1)-Dog_Pos(2);
-        %
-        %             error_Z_rotated = error_Z*cosd(Dog_Pos(4))-error_X*sind(Dog_Pos(4));
-        %
-        %
-        %             Control_Command(11) = error_yaw_command*K_Y;
-        %             Control_Command(10) = error_Z_rotated*K_P;
-        %             Control_Command(10) = 0;
-        %
-        %         end
     else
-        % finished, stop running
-
+        % switch point
         % clean integral
-        integral_x = 0;
-        integral_z = 0;
-        integral_yaw = 0;
+%         integral_x = 0;
+%         integral_z = 0;
+%         integral_yaw = 0;
 
-        if Control_Mode == 1
-            Control_Command(11) = 0;
-            Control_Command(10) = 0; %x
-            Control_Command(9) = 0;  %z
-            breakflag = 1;
-        elseif Control_Mode == 2
+        if Control_Mode == 2
             % go to next way point
             if length(Way_Points_z)>Way_Point_index
                 Way_Point_index=Way_Point_index+1;
