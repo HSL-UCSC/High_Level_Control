@@ -33,8 +33,8 @@ K_I_z = 0.01;
 K_I_yaw = 0;
 
 % Derivative
-K_D_x = 0.05;
-K_D_z = 0.05;
+K_D_x = 0.1;
+K_D_z = 0.1;
 K_D_yaw = 0;
 
 % limit
@@ -46,14 +46,14 @@ integral_x_limit = 0.1;
 integral_z_limit = 0.1;
 integral_yaw_limit = 1*pi/180;
 
-derivative_x_limit = 0.2;
-derivative_z_limit = 0.2;
+derivative_x_limit = 0.3;
+derivative_z_limit = 0.3;
 derivative_yaw_limit = 1*pi/180;
 %% Control Setting
 % MODE
 % Mode 1: Dog will go to Target_point.
 % Mode 2: Dog will follow Way_Points.
-Control_Mode=1;
+Control_Mode=2;
 
 % Target Point
 %[x,z]
@@ -78,12 +78,12 @@ yaw_set = 0;
 
 % THRESHOLD
 % Distance Threshold to switch to next way point
-Distance_Threshold = 0.2;
+Distance_Threshold = 0.30;
 
 % Cricel way points 18
 Way_Points_center =[0,0];
 Way_Points_radius =1.65;
-Way_Points_theta = linspace(0,2*pi,18);
+Way_Points_theta = linspace(0,2*pi,50);
 Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
 Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
 
@@ -150,11 +150,13 @@ previous_error_yaw = 0;
 breakflag = 0;
 Dog_Pos_Record=[];
 Dog_Pos_Record_Index = 1;
+[Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID);
+time = Dog_Pos(1);
 %% Main Loop
 while true
     % get position from camera
     [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, z, x, yaw]
-    Dog_Pos_Record=[Dog_Pos_Record;Dog_Pos];
+    Dog_Pos_Record=[Dog_Pos_Record;Dog_Pos Dog_Pos(1)-time];
     Dog_Pos_Record_Index = Dog_Pos_Record_Index +1;
     if Control_Mode == 2
         Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
@@ -346,6 +348,7 @@ while true
     dy=arrow_length*cosd(Dog_Pos(4));
     dx=arrow_length*sind(Dog_Pos(4));
     quiver(Dog_Pos(2),Dog_Pos(3),dx,dy,'r','LineWidth',0.2,'MaxHeadSize',2);
+    plot(Dog_Pos_Record(:,2),Dog_Pos_Record(:,3),'Color','r');
     set(gca,'XDir','reverse');
     xlim(ax,[-3,3]);
     ylim(ax,[-2,2]);
@@ -354,17 +357,17 @@ while true
     %% Stop
     if breakflag == 1
         figure;
-        subplot(3,1,1);
-        plot(Dog_Pos_Record(:,1),Dog_Pos_Record(:,2));
+        subplot(2,1,1);
+        plot(Dog_Pos_Record(:,5),Dog_Pos_Record(:,2));
         xlabel('Time');
         ylabel('X');
 
-        subplot(3,1,2);
-        plot(Dog_Pos_Record(:,1),Dog_Pos_Record(:,3));
+        subplot(2,1,2);
+        plot(Dog_Pos_Record(:,5),Dog_Pos_Record(:,3));
         xlabel('Time');
         ylabel('Z');
 
-        subplot(3,1,3);
+        figure;
         plot(Dog_Pos_Record(:,2),Dog_Pos_Record(:,3));
         xlabel('X');
         ylabel('Z');
