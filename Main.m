@@ -76,7 +76,7 @@ Target_Point=[0 0];
 %          180
 %
 % wall computer wall
-yaw_set = 0;
+yaw_set = -1;
 
 % THRESHOLD
 % Distance Threshold to switch to next way point
