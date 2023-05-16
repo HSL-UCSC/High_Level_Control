@@ -12,7 +12,7 @@ close all;
 
 %% Robot Dog Network Parameters
 % this IP is the vm ip
-Robot_Dog_IP = '192.168.12.184';
+Robot_Dog_IP = '192.168.123.161';
 Robot_Dog_Port = 1145;
 
 %% Robot Dog Command Initialized
@@ -28,8 +28,8 @@ K_P_z = 0.6;
 K_P_yaw = 0.5;
 
 % Integral
-K_I_x = 0.05;
-K_I_z = 0.05;
+K_I_x = 1.25;
+K_I_z = 1.25;
 K_I_yaw = 0.03;
 
 % Derivative
@@ -38,8 +38,8 @@ K_D_z = 0.08;
 K_D_yaw = 0.05;
 
 % limit
-propostional_x_limit = 0.6;       % m/s
-propostional_z_limit = 0.6;        % m/s
+propostional_x_limit = 0.7;       % m/s
+propostional_z_limit = 0.7;        % m/s
 propostional_yaw_limit = 40*pi/180; % rad/s
 
 integral_x_limit = 0.1;
@@ -76,7 +76,7 @@ Target_Point=[0 0];
 %          180
 %
 % wall computer wall
-yaw_set = -1;
+yaw_set = 0;
 
 % THRESHOLD
 % Distance Threshold to switch to next way point
@@ -85,7 +85,7 @@ Distance_Threshold = 0.15;
 % Cricel way points 18
 Way_Points_center =[0,0];
 Way_Points_radius =1.65;
-Way_Points_theta = linspace(0,2*pi,120);
+Way_Points_theta = linspace(0,2*pi,50);
 Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
 Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
 
