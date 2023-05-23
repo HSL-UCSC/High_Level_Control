@@ -19,13 +19,13 @@ Control_Command(1)=2;
 %% Feedback Control Parameters
 
 % Porportional constant on velocity action
-K_P_x = 0.6;
-K_P_z = 0.6;
+K_P_x = 0.9;
+K_P_z = 0.9;
 K_P_yaw = 0.07;
 
 % Integral
-K_I_x = 1.8;
-K_I_z = 1.8;
+K_I_x = 2.5;
+K_I_z = 2.5;
 K_I_yaw = 0.05;
 
 % Derivative
@@ -42,8 +42,8 @@ i_x_limit = 1;
 i_z_limit = 1;
 i_yaw_limit = 40*pi/180;
 
-d_x_limit = 0.2;
-d_z_limit = 0.2;
+d_x_limit = 0.05;
+d_z_limit = 0.05;
 d_yaw_limit = 2*pi/180;
 
 %% Control Setting
@@ -53,7 +53,7 @@ d_yaw_limit = 2*pi/180;
 
 Control_Mode=2;
 
-Control_Speed=0.6;
+Control_Speed=1;
 
 Switch_Distance=0.5*Control_Speed^2;
 
@@ -128,6 +128,17 @@ Dog_ID = 1; % Rigid body ID of the drone from Motive
 %
 % wall computer wall
 
+% %% figure for movtion track
+% fig = figure();
+% ax = axes('Parent',fig);
+%
+% arrow_length=0.2;
+% %circle for draw
+% circle_center =[0,0];
+% circle_radius =1.5;
+% circle_theta = linspace(0,2*pi,100);
+% circle_x=circle_center(1)+circle_radius*cos(circle_theta);
+% circle_y=circle_center(2)+circle_radius*sin(circle_theta);
 %% Init Parameters
 Way_Point_index=1;
 
@@ -217,10 +228,29 @@ while true
                     break;
                 end
             end
-            
+
         end
         %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+        %         %% draw figure
+        %         plot(ax,circle_x,circle_y,'b-');
+        %         xlabel('X')
+        %         ylabel('Z')
+        %         hold on;
+        %         plot(ax,0,0,'.');
+        %         plot(ax,Target_Point(1),Target_Point(2),'.','Color','r','MarkerSize',20);
+        %         plot(ax,Way_Points_x,Way_Points_z,'o');
+        %         ax.DataAspectRatio=[1 1 1];
+        %         dy=arrow_length*cosd(yaw);
+        %         dx=arrow_length*sind(yaw);
+        %         quiver(x,z,dx,dy,'r','LineWidth',0.2,'MaxHeadSize',2);
+        %         plot(Dog_Pos_Record(:,2),Dog_Pos_Record(:,3),'Color','r');
+        %         set(gca,'XDir','reverse');
+        %         xlim(ax,[-3,3]);
+        %         ylim(ax,[-2,2]);
+        %         hold off;
+        %         drawnow;
         Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+
     end
 end
 %% Speed figures
@@ -229,8 +259,8 @@ plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,2),'DisplayName','Measure Speed');
 title('Robot Dog X Speed')
 hold on;
 plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,4),'LineWidth',1,'DisplayName','Ref Speed');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,6),'LineWidth',1,'DisplayName','Error');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,8),'LineWidth',1,'DisplayName','Control');
+%plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,6),'LineWidth',1,'DisplayName','Error');
+%plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,8),'LineWidth',1,'DisplayName','Control');
 legend;
 xlabel('Time(t)');
 ylabel('Speed(m/s)');
@@ -241,8 +271,8 @@ plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,3),'DisplayName','Measure Speed');
 title('Robot Dog Z Speed')
 hold on;
 plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,5),'LineWidth',1,'DisplayName','Ref Speed');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,7),'LineWidth',1,'DisplayName','Error');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,9),'LineWidth',1,'DisplayName','Control');
+%plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,7),'LineWidth',1,'DisplayName','Error');
+%plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,9),'LineWidth',1,'DisplayName','Control');
 legend;
 xlabel('Time(t)');
 ylabel('Speed(m/s)');
@@ -253,8 +283,19 @@ plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,10),'DisplayName','Measure Yaw');
 title('Robot Dog Z Speed')
 hold on;
 plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,11),'LineWidth',1,'DisplayName','Yaw Ref');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,12),'LineWidth',1,'DisplayName','Control_yaw');
+%plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,12),'LineWidth',1,'DisplayName','Control_yaw');
 legend;
 xlabel('Time(t)');
 ylabel('Speed(m/s)');
 hold off;
+
+figure;
+plot(Dog_Pos_Record(:,2),Dog_Pos_Record(:,3));
+xlabel('X');
+ylabel('Z');
+set(gca,'XDir','reverse');
+hold on;
+rectangle('Position',[-1.5,-1.5,3,3],'Curvature',[1,1]);
+xlim([-3,3]);
+ylim([-2,2]);
+daspect([1 1 1]);
