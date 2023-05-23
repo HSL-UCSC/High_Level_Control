@@ -47,15 +47,10 @@ d_z_limit = 0.2;
 d_yaw_limit = 2*pi/180;
 
 %% Control Setting
-% MODE
-% Mode 1: Target point.
-% Mode 2: Dog will follow Way_Points.
 
-Control_Mode=2;
+Control_Speed=0.8;
 
-Control_Speed=0.6;
-
-Switch_Distance=0.5*Control_Speed^2;
+Switch_Distance=0.1;
 
 % Target Point
 %[x,z]
@@ -79,16 +74,6 @@ Target_Point=[0 0];
 % wall computer wall
 yaw_set = 0;
 
-% THRESHOLD
-% Distance Threshold to switch to next way point
-Distance_Threshold = 0.15;
-
-% Cricel way points
-Way_Points_center =[0,0];
-Way_Points_radius =1.5;
-Way_Points_theta = linspace(0,2*pi,50);
-Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
-Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
 
 %% Instantiate client object to run Motive API commands
 
@@ -107,7 +92,7 @@ HostIP = '127.0.0.1';
 theClient.Initialize(HostIP, HostIP);
 
 Dog_ID = 1; % Rigid body ID of the drone from Motive
-
+Drone_ID = 2;
 % Robot dog command
 %     Control_Command()
 %
@@ -129,7 +114,6 @@ Dog_ID = 1; % Rigid body ID of the drone from Motive
 % wall computer wall
 
 %% Init Parameters
-Way_Point_index=1;
 
 integral_x = 0;
 integral_z = 0;
@@ -150,14 +134,17 @@ while true
     end
 end
 
-if Control_Mode == 2
-    Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
-end
 %% Main Loop
 while true
     % get position from camera
     % async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
     [time, x, z, yaw] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
+    [Drone_time, Drone_x, Drone_z, Drone_yaw] = Get_Dog_Postion(theClient, Drone_ID);
+    Target_Point = [Drone_x,Drone_z];
+    if norm(Target_Point)>1.5
+        Target_Point = [0,0];
+    end
+
     real_time = time-init_time;
     if ~isequal(Dog_Pos_Record(end,:), [real_time, x, z, yaw]) %if not the same values
         i=i+1;
@@ -192,34 +179,22 @@ while true
         Dog_Speed_Record=[Dog_Speed_Record;real_time,Real_Dog_Speed_Dog',Ref_Speed_Dog',Error_Speed_Dog',Control_x,Control_z,yaw,Mode2_Yaw_Ref,Control_yaw];
         %[rtime, real_x_speed, real_z_speed, ref_x_speed, ref_z_speed, error_x, error_z]
 
+        %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
         if Norm_VDT> Switch_Distance
             Control_Command(10) = Control_x;   %x
             Control_Command(9)  = Control_z;   %z
             Control_Command(11) = Control_yaw; %yaw
         else
-            if Control_Mode == 1
-                Control_Command = zeros(1,11,'single');
-                %velocity walking
-                Control_Command(1)=2;
-                %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-                Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-                break;
-            elseif Control_Mode == 2
-                if length(Way_Points_z)>Way_Point_index
-                    Way_Point_index=Way_Point_index+1;
-                    Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
-                else
-                    Control_Command = zeros(1,11,'single');
-                    %velocity walking
-                    Control_Command(1)=2;
-                    %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-                    Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-                    break;
-                end
-            end
-            
+            Control_Command(10) = 0;   %x
+            Control_Command(9)  = 0;   %z
+            Control_Command(11) = 0; %yaw
+            integral_z=0;
+            integral_x=0;
+            integral_yaw=0;
+            previous_error_yaw=0;
+            previous_error_z=0;
+            previous_error_x=0;
         end
-        %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
         Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
     end
 end
