@@ -1,4 +1,4 @@
-function [Control_Output] = PID_Controllor(K_P,K_I,K_D,D_t,error,integral,previous_error,P_l,I_l,D_l)
+function [Control_Output,integral] = PID_Controllor(K_P,K_I,K_D,D_t,error,integral,previous_error,P_l,I_l,D_l)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 %Input: 

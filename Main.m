@@ -25,17 +25,17 @@ dt = 0.05; % time
 % Porportional constant on velocity action
 K_P_x = 0.6;
 K_P_z = 0.6;
-K_P_yaw = 0.5;
+K_P_yaw = 0.07;
 
 % Integral
 K_I_x = 1.25;
 K_I_z = 1.25;
-K_I_yaw = 0.03;
+K_I_yaw = 0.01;
 
 % Derivative
 K_D_x = 0.08;
 K_D_z = 0.08;
-K_D_yaw = 0.05;
+K_D_yaw = 0.01;
 
 % limit
 propostional_x_limit = 0.7;       % m/s
@@ -178,14 +178,14 @@ previous_error_yaw = 0;
 breakflag = 0;
 Dog_Pos_Record=[];
 Dog_Pos_Record_Index = 1;
-[Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID);
-time = Dog_Pos(1);
+[time,x,z,yaw] = Get_Dog_Postion(theClient, Dog_ID);
+init_time = time;
 
 %% Main Loop
 while true
     % get position from camera
-    [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
-    Dog_Pos_Record=[Dog_Pos_Record;Dog_Pos Dog_Pos(1)-time];
+    [time,x,z,yaw] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
+    Dog_Pos_Record=[Dog_Pos_Record; time, x, z, yaw, time-init_time];
     Dog_Pos_Record_Index = Dog_Pos_Record_Index +1;
     if Control_Mode == 2
         Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
@@ -193,130 +193,31 @@ while true
     %% Feedback control
 
     % Calculate Distance
-    Point_Dog = [Dog_Pos(2) Dog_Pos(3)];  %[x,z]
+    Point_Dog = [x z];  %[x,z]
     Vector_PD_TP = Target_Point-Point_Dog; % Get vector
     Norm_Vector = norm(Vector_PD_TP);      % Calculate norm
 
     % rotation matrix to turn vector to robot dog frame
-    Rotation_matrix = [cosd(Dog_Pos(4)), -sind(Dog_Pos(4)) ; sind(Dog_Pos(4)),cosd(Dog_Pos(4)) ];
+    Rotation_matrix = [cosd(yaw), -sind(yaw) ; sind(yaw),cosd(yaw) ];
 
     if Control_Mode==1 || Norm_Vector > Distance_Threshold
         %vector in robot dog frame = error_x error_z
         Vector_rotated = Rotation_matrix*Vector_PD_TP';
 
-        if yaw_set == -1 % not control yaw
-            error_yaw_command=0;
+        Error_Yaw=Yaw_Controllor(yaw_set,yaw,Vector_PD_TP);
+        %% PID
+        Control_x=PID_Controllor(K_P_x,K_I_x,K_D_x,dt,Vector_rotated(1),integral_x,previous_error_x,propostional_x_limit,integral_x_limit,derivative_x_limit);
+        Control_z=PID_Controllor(K_P_z,K_I_z,K_D_z,dt,Vector_rotated(2),integral_z,previous_error_z,propostional_z_limit,integral_z_limit,derivative_z_limit);
+        Control_yaw=PID_Controllor(K_P_yaw,K_I_yaw,K_D_yaw,dt,Error_Yaw,integral_yaw,previous_error_yaw,propostional_yaw_limit,integral_yaw_limit,derivative_yaw_limit);
 
-        elseif yaw_set == -2 % control yaw to motion direction
-            angle_r = atan2(Vector_PD_TP(1),Vector_PD_TP(2));
-            yaw_set_mode2 = rad2deg(angle_r);
-            if yaw_set_mode2 < 0
-                yaw_set_mode2 = yaw_set_mode2+360;
-            end
-            error_yaw = yaw_set_mode2-Dog_Pos(4);
-
-            if error_yaw<-180
-                error_yaw_command=(360+error_yaw);
-            elseif error_yaw > 180
-                error_yaw_command=error_yaw-360;
-            else
-                error_yaw_command=error_yaw;
-            end
-
-        elseif yaw_set >=0 && yaw_set<360  % control yaw
-            error_yaw = yaw_set-Dog_Pos(4);
-            if error_yaw<-180
-                error_yaw_command=(360+error_yaw);
-            elseif error_yaw > 180
-                error_yaw_command=error_yaw-360;
-            else
-                error_yaw_command=error_yaw;
-            end
-        end
-
-
-        %% propostional
         propostional_x   = Vector_rotated(1) * K_P_x;
         propostional_z   = Vector_rotated(2) * K_P_z;
-        propostional_yaw = error_yaw_command*pi/180 * K_P_yaw;
-
-        % propostional limit
-        if propostional_x > propostional_x_limit
-            propostional_x = propostional_x_limit;
-        elseif propostional_x < -propostional_x_limit
-            propostional_x = -propostional_x_limit;
-        end
-
-        if propostional_z > propostional_z_limit
-            propostional_z = propostional_z_limit;
-        elseif propostional_z < -propostional_z_limit
-            propostional_z = -propostional_z_limit;
-        end
-
-        if propostional_yaw > propostional_yaw_limit
-            propostional_yaw = propostional_yaw_limit;
-        elseif propostional_yaw < -propostional_yaw_limit
-            propostional_yaw = -propostional_yaw_limit;
-        end
-
-        %% integral
-        integral_x   = integral_x   + K_I_x   * Vector_rotated(1) * dt;
-        integral_z   = integral_z   + K_I_z   * Vector_rotated(2) * dt;
-        integral_yaw = integral_yaw + K_I_yaw * error_yaw_command * dt;
-
-        % integral limit
-        if integral_x > integral_x_limit
-            integral_x = integral_x_limit;
-        elseif integral_x < -integral_x_limit
-            integral_x = -integral_x_limit;
-        end
-
-        if integral_z > integral_z_limit
-            integral_z = integral_z_limit;
-        elseif integral_z < -integral_z_limit
-            integral_z = -integral_z_limit;
-        end
-
-        if integral_yaw > integral_yaw_limit
-            integral_yaw = integral_yaw_limit;
-        elseif integral_yaw < -integral_yaw_limit
-            integral_yaw = -integral_yaw_limit;
-        end
-
-
-        %% derivative
-        derivative_x   = K_D_x   * (Vector_rotated(1) - previous_error_x)  /dt;
-        derivative_z   = K_D_z   * (Vector_rotated(2) - previous_error_z)  /dt;
-        derivative_yaw = K_D_yaw * (error_yaw_command - previous_error_yaw)/dt;
-
-        previous_error_x = Vector_rotated(1);
-        previous_error_z = Vector_rotated(2);
-        previous_error_yaw = error_yaw_command;
-
-        % derivative limit
-        if derivative_x > derivative_x_limit
-            derivative_x = derivative_x_limit;
-        elseif derivative_x < -derivative_x_limit
-            derivative_x = -derivative_x_limit;
-        end
-
-        if derivative_z > derivative_z_limit
-            derivative_z = derivative_z_limit;
-        elseif derivative_z < -derivative_z_limit
-            derivative_z = -derivative_z_limit;
-        end
-
-        if derivative_yaw > derivative_yaw_limit
-            derivative_yaw = derivative_yaw_limit;
-        elseif derivative_yaw < -derivative_yaw_limit
-            derivative_yaw = -derivative_yaw_limit;
-        end
-
+        propostional_yaw = Error_Yaw*pi/180 * K_P_yaw;
 
         %% set command
-        Control_Command(10) = propostional_x   + integral_x   + derivative_x;   %x
-        Control_Command(9)  = propostional_z   + integral_z   + derivative_z;   %z
-        Control_Command(11) = propostional_yaw + integral_yaw + derivative_yaw; %yaw
+        Control_Command(10) = Control_x;   %x
+        Control_Command(9)  = Control_z;   %z
+        Control_Command(11) = Control_yaw; %yaw
     else
         % switch point
         % clean integral
@@ -341,7 +242,6 @@ while true
     disp(Control_Command);
     % send command to vitrual machine
     Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-
     %% draw figure
     plot(ax,circle_x,circle_y,'b-');
     xlabel('X')
@@ -351,9 +251,9 @@ while true
     plot(ax,Target_Point(1),Target_Point(2),'.','Color','r','MarkerSize',20);
     plot(ax,Way_Points_x,Way_Points_z,'o');
     ax.DataAspectRatio=[1 1 1];
-    dy=arrow_length*cosd(Dog_Pos(4));
-    dx=arrow_length*sind(Dog_Pos(4));
-    quiver(Dog_Pos(2),Dog_Pos(3),dx,dy,'r','LineWidth',0.2,'MaxHeadSize',2);
+    dy=arrow_length*cosd(yaw);
+    dx=arrow_length*sind(yaw);
+    quiver(x,z,dx,dy,'r','LineWidth',0.2,'MaxHeadSize',2);
     plot(Dog_Pos_Record(:,2),Dog_Pos_Record(:,3),'Color','r');
     set(gca,'XDir','reverse');
     xlim(ax,[-3,3]);
