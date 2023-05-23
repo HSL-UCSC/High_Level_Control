@@ -69,7 +69,7 @@ real_time=0;
 %% Main Loop
 while true
     async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-    [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, z, x, yaw]
+    [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
     if i<1
         i=i+1;
         Dog_Pos_Record=[Dog_Pos_Record ; Dog_Pos];

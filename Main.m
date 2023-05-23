@@ -184,7 +184,7 @@ time = Dog_Pos(1);
 %% Main Loop
 while true
     % get position from camera
-    [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, z, x, yaw]
+    [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
     Dog_Pos_Record=[Dog_Pos_Record;Dog_Pos Dog_Pos(1)-time];
     Dog_Pos_Record_Index = Dog_Pos_Record_Index +1;
     if Control_Mode == 2
