@@ -21,7 +21,7 @@ Control_Command(1)=2;
 % Porportional constant on velocity action
 K_P_x = 0.6;
 K_P_z = 0.6;
-K_P_yaw = 0.07;
+K_P_yaw = 0.3;
 
 % Integral
 K_I_x = 1.8;
@@ -48,9 +48,9 @@ d_yaw_limit = 2*pi/180;
 
 %% Control Setting
 
-Control_Speed=0.8;
+Control_Speed=0.6;
 
-Switch_Distance=0.1;
+Switch_Distance=0.8;
 
 % Target Point
 %[x,z]
@@ -72,7 +72,7 @@ Target_Point=[0 0];
 %          180
 %
 % wall computer wall
-yaw_set = 0;
+yaw_set = -2;
 
 
 %% Instantiate client object to run Motive API commands
@@ -92,7 +92,7 @@ HostIP = '127.0.0.1';
 theClient.Initialize(HostIP, HostIP);
 
 Dog_ID = 1; % Rigid body ID of the drone from Motive
-Drone_ID = 2;
+Car_ID = 2;
 % Robot dog command
 %     Control_Command()
 %
@@ -112,6 +112,7 @@ Drone_ID = 2;
 %
 %
 % wall computer wall
+
 
 %% Init Parameters
 
@@ -139,12 +140,10 @@ while true
     % get position from camera
     % async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
     [time, x, z, yaw] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
-    [Drone_time, Drone_x, Drone_z, Drone_yaw] = Get_Dog_Postion(theClient, Drone_ID);
-    Target_Point = [Drone_x,Drone_z];
-    if norm(Target_Point)>1.5
-        Target_Point = [0,0];
+    [Car_time, Car_x, Car_z, Car_yaw] = Get_Dog_Postion(theClient, Car_ID);
+    if abs(Car_x)<2.5 || abs(Car_z)<1.6
+        Target_Point = [Car_x,Car_z];
     end
-
     real_time = time-init_time;
     if ~isequal(Dog_Pos_Record(end,:), [real_time, x, z, yaw]) %if not the same values
         i=i+1;
@@ -152,6 +151,7 @@ while true
         Rotation_matrix = [cosd(yaw), -sind(yaw) ; sind(yaw),cosd(yaw) ];
 
         d_dog_pos = Dog_Pos_Record(i,:)-Dog_Pos_Record(i-1,:); %[dtime, dx, dz, dyaw]
+
 
         Real_Dog_Speed_Room = [d_dog_pos(2)/d_dog_pos(1), d_dog_pos(3)/d_dog_pos(1)];
         Real_Dog_Speed_Dog = Rotation_matrix*Real_Dog_Speed_Room';
@@ -187,7 +187,10 @@ while true
         else
             Control_Command(10) = 0;   %x
             Control_Command(9)  = 0;   %z
-            Control_Command(11) = 0; %yaw
+            Control_Command(11) = Control_yaw; %yaw
+            if Error_Yaw < 5
+                Control_Command(11) = 0;
+            end
             integral_z=0;
             integral_x=0;
             integral_yaw=0;
@@ -195,6 +198,8 @@ while true
             previous_error_z=0;
             previous_error_x=0;
         end
+
+        
         Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
     end
 end

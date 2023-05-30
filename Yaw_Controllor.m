@@ -1,4 +1,4 @@
-function [error_yaw_command,yaw_set_mode2] = Yaw_Controllor(yaw_set,Dog_yaw,Vector)
+function [error_yaw_command,yaw_ref] = Yaw_Controllor(yaw_set,Dog_yaw,Vector)
 %YAW_CONTROLLOR Summary of this function goes here
 %   Detailed explanation goes here
 % Yaw
@@ -12,7 +12,6 @@ function [error_yaw_command,yaw_set_mode2] = Yaw_Controllor(yaw_set,Dog_yaw,Vect
 %          180
 %
 % wall computer wall
-yaw_set_mode2=0;
 if yaw_set == -1 % not control yaw
     error_yaw_command=0;
 elseif yaw_set == -2 % control yaw to motion direction
@@ -22,7 +21,7 @@ elseif yaw_set == -2 % control yaw to motion direction
         yaw_set_mode2 = yaw_set_mode2+360;
     end
     error_yaw = yaw_set_mode2-Dog_yaw;
-
+    yaw_ref=yaw_set_mode2;
     if error_yaw<-180
         error_yaw_command=(360+error_yaw);
     elseif error_yaw > 180
@@ -39,6 +38,7 @@ elseif yaw_set >=0 && yaw_set<360  % control yaw
     else
         error_yaw_command=error_yaw;
     end
+    yaw_ref = yaw_set;
 end
 
 end
