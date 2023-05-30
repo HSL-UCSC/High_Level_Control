@@ -52,7 +52,7 @@ HostIP = '127.0.0.1';
 theClient.Initialize(HostIP, HostIP);
 %%
 Dog_ID = 1; % Rigid body ID of the drone from Motive
-
+% dance 1
 Control_Command(1)=12;
 
 Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
