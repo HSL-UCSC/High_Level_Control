@@ -19,12 +19,12 @@
 5. run ifconfig to ensure there are 2 network devices
 6. make sure you can successfully ping 8.8.8.8 (or some other internet IP) and 192.168.123.161 (dog pi)
 
-7. git clone https://github.com/lyphix/unitree_matlab.git
-8. cd into unitree_matlab
+7. git clone https://github.com/HSL-UCSC/UDP_Relay_Service.git
+8. cd into UDP_Relay_Service
 9. edit example/udp_link.cpp line 33 (if using vi, use ":set number" to show line numbers)
 10. make sure the ip is "192.168.123.161" - dog pi IP
 11. this might be set to 127.0.0.1 by default
-12. cd back into unitree_matlab if you aren't already there
+12. cd back into UDP_Relay_Service if you aren't already there
 13. mkdir build
 14. cd build
 15. cmake ..
