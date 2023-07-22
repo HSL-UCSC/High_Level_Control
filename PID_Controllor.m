@@ -1,7 +1,7 @@
 function [Control_Output,integral] = PID_Controllor(K_P,K_I,K_D,D_t,error,integral,previous_error,P_l,I_l,D_l)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
-%Input: 
+%Input:
 % K_P,K_I,K_D, PID parameters
 % D_t time
 % error
@@ -9,14 +9,14 @@ function [Control_Output,integral] = PID_Controllor(K_P,K_I,K_D,D_t,error,integr
 % previous_error
 % P_l,I_l,D_l PID output limit, set 0 to disable.
 
-propostional   = error * K_P;
+propositional   = error * K_P;
 integral   = integral   + K_I   * error * D_t;
 derivative   = K_D   * (error - previous_error)  /D_t;
 if P_l ~= 0
-    if propostional > P_l
-        propostional = P_l;
-    elseif propostional < -P_l
-        propostional = -P_l;
+    if propositional > P_l
+        propositional = P_l;
+    elseif propositional < -P_l
+        propositional = -P_l;
     end
 end
 if I_l ~= 0
@@ -33,6 +33,6 @@ if D_l ~= 0
         derivative = -D_l;
     end
 end
-Control_Output = propostional+integral+derivative;
+Control_Output = propositional+integral+derivative;
 end
 

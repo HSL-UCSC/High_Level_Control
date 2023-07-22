@@ -4,7 +4,7 @@ close all;
 
 %% Robot Dog Network Parameters
 % this IP is the vm ip
-Robot_Dog_IP = '192.168.123.161';
+Robot_Dog_IP = '192.168.254.134';
 Robot_Dog_Port = 1145;
 
 
@@ -56,6 +56,3 @@ Dog_ID = 1; % Rigid body ID of the drone from Motive
 Control_Command(1)=12;
 
 Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-
-
-

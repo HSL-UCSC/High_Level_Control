@@ -5,7 +5,7 @@ close all;
 
 %% Robot Dog Network Parameters
 % this IP is the vm ip
-Robot_Dog_IP = '192.168.123.161';
+Robot_Dog_IP = '192.168.254.132';
 Robot_Dog_Port = 1145;
 
 % Robot Dog Command Initialized
@@ -15,7 +15,8 @@ Control_Command(1)=2;
 % if isempty(gcp('nocreate'))
 %     parpool;
 % end
-% futureResult = parallel.FevalFuture;
+% futureResult =
+% parallel.FevalFuture;
 %% Feedback Control Parameters
 
 % Porportional constant on velocity action
@@ -126,6 +127,7 @@ previous_error_yaw = 0;
 
 Dog_Speed_Record=[];
 Dog_Pos_Record=[];
+Car_R=[]
 while true
     [init_time, x, z, yaw] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw];
     Dog_Pos_Record=[0, x, z, yaw];
@@ -149,36 +151,36 @@ while true
         i=i+1;
         Dog_Pos_Record=[Dog_Pos_Record ; real_time, x, z, yaw];
         Rotation_matrix = [cosd(yaw), -sind(yaw) ; sind(yaw),cosd(yaw) ];
-
+        Car_R=[Car_R;Target_Point,real_time];
         d_dog_pos = Dog_Pos_Record(i,:)-Dog_Pos_Record(i-1,:); %[dtime, dx, dz, dyaw]
-
-
+        
+        
         Real_Dog_Speed_Room = [d_dog_pos(2)/d_dog_pos(1), d_dog_pos(3)/d_dog_pos(1)];
         Real_Dog_Speed_Dog = Rotation_matrix*Real_Dog_Speed_Room';
-
+        
         Vector_D_T = Target_Point-[x z]; % Get vector
-
+        
         Norm_VDT = norm(Vector_D_T);      % Calculate Distance
         scale=Control_Speed/Norm_VDT;
         Ref_Speed_Room=scale*Vector_D_T;
         Ref_Speed_Dog = Rotation_matrix*Ref_Speed_Room';
         Error_Speed_Dog = Ref_Speed_Dog-Real_Dog_Speed_Dog;
-
+        
         %error yaw calculate
         [Error_Yaw,Mode2_Yaw_Ref]=Yaw_Controllor(yaw_set,yaw,Vector_D_T);
         %PID Control
         [Control_x,integral_x]=PID_Controllor(K_P_x,K_I_x,K_D_x,d_dog_pos(1),Error_Speed_Dog(1),integral_x,previous_error_x,p_x_limit,i_x_limit,d_x_limit);
         [Control_z,integral_z]=PID_Controllor(K_P_z,K_I_z,K_D_z,d_dog_pos(1),Error_Speed_Dog(2),integral_z,previous_error_z,p_z_limit,i_z_limit,d_z_limit);
         [Control_yaw,integral_yaw]=PID_Controllor(K_P_yaw,K_I_yaw,K_D_yaw,d_dog_pos(1),Error_Yaw,integral_yaw,previous_error_yaw,p_yaw_limit,i_yaw_limit,d_yaw_limit);
-
+        
         previous_error_x = Error_Speed_Dog(1);
         previous_error_z = Error_Speed_Dog(2);
         previous_error_yaw = Error_Yaw;
         disp([Real_Dog_Speed_Dog',Error_Speed_Dog',Control_x,Control_z,Control_yaw])
-
+        
         Dog_Speed_Record=[Dog_Speed_Record;real_time,Real_Dog_Speed_Dog',Ref_Speed_Dog',Error_Speed_Dog',Control_x,Control_z,yaw,Mode2_Yaw_Ref,Control_yaw];
         %[rtime, real_x_speed, real_z_speed, ref_x_speed, ref_z_speed, error_x, error_z]
-
+        
         %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
         if Norm_VDT> Switch_Distance
             Control_Command(10) = Control_x;   %x
@@ -188,9 +190,9 @@ while true
             Control_Command(10) = 0;   %x
             Control_Command(9)  = 0;   %z
             Control_Command(11) = Control_yaw; %yaw
-            if Error_Yaw < 5
-                Control_Command(11) = 0;
-            end
+            %             if Error_Yaw < 5
+            %                 Control_Command(11) = 0;
+            %             end
             integral_z=0;
             integral_x=0;
             integral_yaw=0;
@@ -198,43 +200,23 @@ while true
             previous_error_z=0;
             previous_error_x=0;
         end
-
+        
         
         Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
     end
 end
 %% Speed figures
 figure;
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,2),'DisplayName','Measure Speed');
-title('Robot Dog X Speed')
+plot(Dog_Pos_Record(:,2),Dog_Pos_Record(:,3),'DisplayName','Dog');
+title('Robot Dog follow Car')
+xlabel('X');
+ylabel('Z');
+set(gca,'XDir','reverse');
 hold on;
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,4),'LineWidth',1,'DisplayName','Ref Speed');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,6),'LineWidth',1,'DisplayName','Error');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,8),'LineWidth',1,'DisplayName','Control');
+rectangle('Position',[-1.5,-1.5,3,3],'Curvature',[1,1]);
+plot(Car_R(:,1),Car_R(:,2),'DisplayName','Car');
+xlim([-4,4]);
+ylim([-2,2]);
+daspect([1 1 1]);
 legend;
-xlabel('Time(t)');
-ylabel('Speed(m/s)');
-hold off;
-
-figure;
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,3),'DisplayName','Measure Speed');
-title('Robot Dog Z Speed')
-hold on;
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,5),'LineWidth',1,'DisplayName','Ref Speed');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,7),'LineWidth',1,'DisplayName','Error');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,9),'LineWidth',1,'DisplayName','Control');
-legend;
-xlabel('Time(t)');
-ylabel('Speed(m/s)');
-hold off;
-
-figure;
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,10),'DisplayName','Measure Yaw');
-title('Robot Dog Z Speed')
-hold on;
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,11),'LineWidth',1,'DisplayName','Yaw Ref');
-plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,12),'LineWidth',1,'DisplayName','Control_yaw');
-legend;
-xlabel('Time(t)');
-ylabel('Speed(m/s)');
 hold off;

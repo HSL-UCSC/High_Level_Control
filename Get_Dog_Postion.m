@@ -25,10 +25,10 @@ Dog_Pos = frameData.RigidBodies(id);
 if ~isempty(Dog_Pos)
     z=Dog_Pos.z;
     x=Dog_Pos.x;
-
+    
     q = [Dog_Pos.qx, Dog_Pos.qy, Dog_Pos.qz, Dog_Pos.qw];
     Eul_ang = quat2eul(q);
-%% convert yaw
+    %% convert yaw
     if abs(Eul_ang(1)) > pi/2
         if -Eul_ang(2) < 0
             yaw = -Eul_ang(2)+2*pi;
@@ -39,7 +39,7 @@ if ~isempty(Dog_Pos)
         yaw = pi+Eul_ang(2);
     end
     yaw = yaw*180/pi;
-
+    
     
 else
     time_stamp=0;

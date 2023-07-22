@@ -14,6 +14,7 @@ function [error_yaw_command,yaw_ref] = Yaw_Controllor(yaw_set,Dog_yaw,Vector)
 % wall computer wall
 if yaw_set == -1 % not control yaw
     error_yaw_command=0;
+    yaw_ref = 0;
 elseif yaw_set == -2 % control yaw to motion direction
     angle_r = atan2(Vector(1),Vector(2));
     yaw_set_mode2 = rad2deg(angle_r);

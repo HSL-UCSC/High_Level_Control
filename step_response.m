@@ -17,7 +17,7 @@ z_speed = 0;
 Control_Command = zeros(1,11,'single');
 %velocity walking
 Control_Command(1)=2;
-Control_Command(2)=2;
+Control_Command(2)=2; %1walk 2run
 Control_Command(9)=z_speed;
 Control_Command(10)=x_speed;
 % Robot dog command
@@ -38,11 +38,6 @@ Control_Command(10)=x_speed;
 %
 %
 % wall computer wall
-
-if isempty(gcp('nocreate'))
-    parpool;
-end
-futureResult = parallel.FevalFuture;
 %% Instantiate client object to run Motive API commands
 
 % Check list:
@@ -61,32 +56,34 @@ theClient.Initialize(HostIP, HostIP);
 
 Dog_ID = 1; % Rigid body ID of the drone from Motive
 
-%% initialized 
+%% initialized
 Dog_Pos_Record=[];
 Dog_Speed_Record=[];
-i=0;
+i=1;
 real_time=0;
+while true
+    [time,x,z,yaw] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
+    if time ~0
+        Dog_Pos_Record=[Dog_Pos_Record ; time,x,z,yaw];
+        break
+    end
+end
 %% Main Loop
 while true
-    async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-    [Dog_Pos] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
-    if i<1
+    Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+    [time,x,z,yaw] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
+    if ~isequal(Dog_Pos_Record(end,:),[time,x,z,yaw])
         i=i+1;
-        Dog_Pos_Record=[Dog_Pos_Record ; Dog_Pos];
-    else
-        if ~isequal(Dog_Pos_Record(end,:),Dog_Pos)
-            i=i+1;
-            Dog_Pos_Record=[Dog_Pos_Record ; Dog_Pos];
-            d_dog_pos = Dog_Pos_Record(i,:)-Dog_Pos_Record(i-1,:);
-            real_time = Dog_Pos_Record(i-1,1)-Dog_Pos_Record(1,1);
-            speed_norm=norm(d_dog_pos(2:3))/d_dog_pos(1);
-            Dog_Speed_Record=[Dog_Speed_Record;real_time,speed_norm];
-            if real_time>run_time
-                Control_Command = zeros(1,11,'single');
-                async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-                if speed_norm < 0.05
-                    break
-                end
+        Dog_Pos_Record=[Dog_Pos_Record ; [time,x,z,yaw]];
+        d_dog_pos = Dog_Pos_Record(i,:)-Dog_Pos_Record(i-1,:);
+        real_time = Dog_Pos_Record(i-1,1)-Dog_Pos_Record(1,1);
+        speed_norm=norm(d_dog_pos(2:3))/d_dog_pos(1);
+        Dog_Speed_Record=[Dog_Speed_Record;real_time,speed_norm];
+        if real_time>run_time
+            Control_Command = zeros(1,11,'single');
+            Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+            if speed_norm < 0.05
+                break
             end
         end
     end

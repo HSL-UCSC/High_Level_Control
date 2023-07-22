@@ -5,13 +5,15 @@ close all;
 
 %% Robot Dog Network Parameters
 % this IP is the vm ip
-Robot_Dog_IP = '192.168.123.161';
+Robot_Dog_IP = '192.168.254.132';
 Robot_Dog_Port = 1145;
 
 % Robot Dog Command Initialized
 Control_Command = zeros(1,11,'single');
 %velocity walking
-Control_Command(1)=2;
+Control_Command(1)=2; % mode
+Control_Command(2)=2; % gaitType
+Control_Command(4)=0.1; % footRaiseHeight
 % if isempty(gcp('nocreate'))
 %     parpool;
 % end
@@ -53,13 +55,13 @@ d_yaw_limit = 2*pi/180;
 
 Control_Mode=2;
 
-Control_Speed=0.8;
+Control_Speed=0.65;
 
-Switch_Distance=0.5;
+Switch_Distance=0.3;
 
 % Target Point
 %[x,z]
-Target_Point=[0 0];
+Target_Point=[1 1];
 
 % YAW
 % [0,360)
@@ -86,10 +88,26 @@ Distance_Threshold = 0.15;
 
 % Cricel way points
 Way_Points_center =[0,0];
-Way_Points_radius =1.5;
-Way_Points_theta = linspace(0,2*pi,60);
+Way_Points_radius =1.65;
+Way_Points_theta = linspace(0,2*pi,120);
 Way_Points_x=Way_Points_center(1)+Way_Points_radius*cos(Way_Points_theta);
 Way_Points_z=Way_Points_center(2)+Way_Points_radius*sin(Way_Points_theta);
+
+Way_Point_index = 1;
+Target_Point = [Way_Points_x(Way_Point_index)
+    Way_Points_z(Way_Point_index)]
+
+PID_Controllor(Target_Point)
+
+if length(Way_points_z)>Way_Point_index
+    Way_Point_index = Way_Point_index+1;
+else
+    %finished stop running
+    Control_Command(11) = 0;
+    Control_Command(10) = 0;
+    Control_Command(9) = 0;
+    breakflag = 1;
+end
 
 %% Instantiate client object to run Motive API commands
 
@@ -156,26 +174,26 @@ end
 if Control_Mode == 2
     Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
 end
-Dog_Speed_Record=zeros(1,14);
+Dog_Speed_Record=zeros(1,15);
 %% Main Loop
 while true
     % get position from camera
     % async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
     [time, x, z, yaw] = Get_Dog_Postion(theClient, Dog_ID); %[time, x, z, yaw]
     real_time = time-init_time;
-
+    
     if ~isequal(Dog_Pos_Record(end,:), [real_time, x, z, yaw]) %if not the same values
         i=i+1;
         Dog_Pos_Record=[Dog_Pos_Record ; real_time, x, z, yaw];
         %Real_Time_Location_Figure(x,z,yaw,Target_Point(1),Target_Point(2),0.2,1.5,0,0);
         Rotation_matrix = [cosd(yaw), -sind(yaw) ; sind(yaw),cosd(yaw) ];
-
+        
         d_dog_pos = Dog_Pos_Record(i,:)-Dog_Pos_Record(i-1,:); %[dtime, dx, dz, dyaw]
-
+        
         Real_Dog_Speed_Room = [d_dog_pos(2)/d_dog_pos(1), d_dog_pos(3)/d_dog_pos(1)];
         Real_Dog_Speed_Dog = Rotation_matrix*Real_Dog_Speed_Room';
         Last_Speed_Record=Dog_Speed_Record(end,13:14);
-
+        
         %filter
         Dog_A=[(Real_Dog_Speed_Dog(1)-Last_Speed_Record(1))/d_dog_pos(1),(Real_Dog_Speed_Dog(2)-Last_Speed_Record(2))/d_dog_pos(1)];
         Dog_A_R=[Dog_A_R;Dog_A];
@@ -186,7 +204,7 @@ while true
         else
             Filter_Dog_Speed_X=Real_Dog_Speed_Dog(1);
         end
-
+        
         if Dog_A(2)>A_max
             Filter_Dog_Speed_Z=Last_Speed_Record(2)+A_max*d_dog_pos(1);
         elseif Dog_A(2)<-A_max
@@ -194,16 +212,16 @@ while true
         else
             Filter_Dog_Speed_Z=Real_Dog_Speed_Dog(2);
         end
-
-
+        
+        
         Vector_D_T = Target_Point-[x z]; % Get vector
-
+        
         Norm_VDT = norm(Vector_D_T);      % Calculate Distance
         scale=Control_Speed/Norm_VDT;
         Ref_Speed_Room=scale*Vector_D_T;
         Ref_Speed_Dog = Rotation_matrix*Ref_Speed_Room';
         Error_Speed_Dog = Ref_Speed_Dog-[Filter_Dog_Speed_X;Filter_Dog_Speed_Z];
-
+        
         %error yaw calculate
         [Error_Yaw,Mode2_Yaw_Ref]=Yaw_Controllor(yaw_set,yaw,Vector_D_T);
         %PID Control
@@ -213,12 +231,12 @@ while true
         previous_error_x = Error_Speed_Dog(1);
         previous_error_z = Error_Speed_Dog(2);
         previous_error_yaw = Error_Yaw;
-
-        %disp([Real_Dog_Speed_Dog',Error_Speed_Dog',Control_x,Control_z,Control_yaw])
-
-        Dog_Speed_Record=[Dog_Speed_Record;real_time,Real_Dog_Speed_Dog',Ref_Speed_Dog',Error_Speed_Dog',Control_x,Control_z,yaw,Mode2_Yaw_Ref,Control_yaw,Filter_Dog_Speed_X,Filter_Dog_Speed_Z];
+        
+        % disp([Real_Dog_Speed_Dog',Error_Speed_Dog',Control_x,Control_z,Control_yaw])
+        
+        Dog_Speed_Record=[Dog_Speed_Record;real_time,Real_Dog_Speed_Dog',Ref_Speed_Dog',Error_Speed_Dog',Control_x,Control_z,yaw,Mode2_Yaw_Ref,Control_yaw,Filter_Dog_Speed_X,Filter_Dog_Speed_Z,norm(Real_Dog_Speed_Dog)];
         %[rtime, real_x_speed, real_z_speed, ref_x_speed, ref_z_speed, error_x, error_z]
-
+        
         if Norm_VDT> Switch_Distance
             if yaw_set == -2
                 Control_Command(10) = Control_x*0.06;   %x
@@ -227,35 +245,49 @@ while true
             end
             Control_Command(9)  = Control_z;   %z
             Control_Command(11) = Control_yaw; %yaw
+            fprintf("1\n");
+            %             Control_Command = [2 2 0 0.1 0 0 0 0 0.4 0 2]
+            %             Control_Command(9) = 0.4;
+            %             Control_Command(10) = 0;
+            %             Control_Command(11) = 2;
+            Control_Command
         else
             if Control_Mode == 1
                 Control_Command = zeros(1,11,'single');
                 %velocity walking
-                Control_Command(1)=2;
+                Control_Command(1)=2; % mode
+                Control_Command(2)=2; % gaitType
+                Control_Command(4)=0.1; % footRaiseHeight
                 %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
                 Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+                fprintf("2\n");
                 break;
             elseif Control_Mode == 2
                 if length(Way_Points_z)>Way_Point_index
                     Way_Point_index=Way_Point_index+1;
                     Target_Point = [Way_Points_x(Way_Point_index) Way_Points_z(Way_Point_index)];
+                    fprintf("3\n");
                 else
                     Control_Command = zeros(1,11,'single');
                     %velocity walking
-                    Control_Command(1)=2;
+                    Control_Command(1)=2; % mode
+                    Control_Command(2)=2; % gaitType
+                    Control_Command(4)=0.1; % footRaiseHeight
                     %async_robot_dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
                     Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
+                    fprintf("4\n");
                     break;
                 end
             end
-
+            
         end
         Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
-
+        fprintf("5\n");
     end
 end
 %% Speed figures
 figure;
+subplot(2,1,1);
 plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,2),'DisplayName','Measure Speed');
 title('Robot Dog X Speed')
 hold on;
@@ -268,7 +300,7 @@ xlabel('Time(t)');
 ylabel('Speed(m/s)');
 hold off;
 
-figure;
+subplot(2,1,2);
 plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,3),'DisplayName','Measure Speed');
 title('Robot Dog Z Speed')
 hold on;
@@ -280,6 +312,20 @@ legend;
 xlabel('Time(t)');
 ylabel('Speed(m/s)');
 hold off;
+
+subplot(2,1,2);
+plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,3),'DisplayName','Measure Speed');
+title('Robot Dog Norm Speed')
+hold on;
+plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,5),'LineWidth',1,'DisplayName','Ref Speed');
+plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,14),'LineWidth',1,'DisplayName','Filter');
+%plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,7),'LineWidth',1,'DisplayName','Error');
+%plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,9),'LineWidth',1,'DisplayName','Control');
+legend;
+xlabel('Time(t)');
+ylabel('Speed(m/s)');
+hold off;
+
 
 figure;
 plot(Dog_Speed_Record(:,1),Dog_Speed_Record(:,10),'DisplayName','Measure Yaw');
