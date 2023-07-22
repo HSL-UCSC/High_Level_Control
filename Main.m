@@ -248,7 +248,7 @@ while true
         end
     end
     % print command
-    %     disp(Control_Command);
+    disp(Control_Command);
     %     fprintf("hi\n");
     % send command to vitrual machine
     Robot_Dog(Robot_Dog_IP,Robot_Dog_Port,Control_Command);
